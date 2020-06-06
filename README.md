@@ -1,6 +1,6 @@
 # pdf-react
 
-## A simple pdf viewer for react
+A simple pdf viewer for react
 
 ### support print rotate zoom etc.
 
