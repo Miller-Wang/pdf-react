@@ -2,6 +2,9 @@
 
 A simple pdf viewer for react
 
+![npm](https://img.shields.io/npm/v/pdf-react)
+![npm](https://img.shields.io/github/stars/Miller-Wang/pdf-react?style=social)
+
 ## usage
 
 ```js
