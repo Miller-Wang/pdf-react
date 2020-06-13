@@ -13,7 +13,7 @@ A simple pdf viewer for react
 ```js
 import PdfViewer from "pdf-react";
 
-<PdfViewer src="http://exmple/test.pdf" width="500px" height="500px" />;
+<PdfViewer src="http://exmple/test.pdf" />;
 ```
 
 ### load local resource
@@ -21,7 +21,7 @@ import PdfViewer from "pdf-react";
 ```js
 import PdfViewer from "pdf-react";
 
-const pdf = require("./static/1.pdf");
+import pdf from "./static/1.pdf";
 
-<PdfViewer src={pdf} width="500px" height="500px" />;
+<PdfViewer src={pdf} />;
 ```
