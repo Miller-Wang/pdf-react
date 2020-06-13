@@ -74,10 +74,4 @@ import pdf from "./static/1.pdf";
 
 ```
 
- <iframe  
- height=850 
- width=90% 
- src="http://www.baidu.com"  
- frameborder=0  
->
- </iframe>
+### Example: http://www.miller8.top/pdf-react/
