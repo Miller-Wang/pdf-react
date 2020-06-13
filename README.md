@@ -82,6 +82,6 @@ At the begin i use react-pdf to render pdf files, but it has so much trouble, no
 
 ![react-pdf](http://www.miller8.top/pdf-react/react-pdf.png)
 
-and this is our library webpack-bundle-analyzer result
+and this is our library webpack-bundle-analyzer result, only 200kb
 
 ![react-pdf](http://www.miller8.top/pdf-react/bundleImg.png)
