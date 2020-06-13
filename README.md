@@ -84,4 +84,4 @@ At the begin i use react-pdf to render pdf files, but it has so much trouble, no
 
 and this is our library webpack-bundle-analyzer result
 
-![react-pdf](http://www.miller8.top/pdf-react/pdf-react.png)
+![react-pdf](http://www.miller8.top/pdf-react/bundleImg.png)
