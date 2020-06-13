@@ -2,10 +2,6 @@
 
 A simple pdf viewer for react
 
-### support print rotate zoom etc.
-
-### support load local and remote pdf resource
-
 ## usage
 
 ```js
@@ -77,3 +73,11 @@ import pdf from "./static/1.pdf";
   }
 
 ```
+
+ <iframe  
+ height=850 
+ width=90% 
+ src="http://www.baidu.com"  
+ frameborder=0  
+>
+ </iframe>

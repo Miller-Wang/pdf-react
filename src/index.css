@@ -148,6 +148,7 @@
 .page-arrow {
   display: inline-block;
   width: 50px;
+  margin-top: 10px;
   text-align: center;
   cursor: pointer;
   color: #888;
