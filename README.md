@@ -75,3 +75,13 @@ import pdf from "./static/1.pdf";
 ```
 
 ### Example: http://www.miller8.top/pdf-react/
+
+### compare with react-pdf
+
+At the begin i use react-pdf to render pdf files, but it has so much trouble, not only It's very troublesome to use, but also it make us bundle size larger 1~2M than before，here is the webpack-bundle-analyzer result
+
+![react-pdf](http://www.miller8.top/pdf-react/react-pdf.png)
+
+and this is our library webpack-bundle-analyzer result
+
+![react-pdf](http://www.miller8.top/pdf-react/pdf-react.png)
