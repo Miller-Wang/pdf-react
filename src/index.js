@@ -326,7 +326,11 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
         var preProps = this.props;
 
         if (nextProps.src && preProps.src !== nextProps.src) {
+          this.pdf.loadPage(0);
           this.pdf.loadDocument(nextProps.src);
+          this.setState({
+            page: 1,
+          });
         }
 
         if (
