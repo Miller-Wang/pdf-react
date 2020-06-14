@@ -1,6 +1,6 @@
 {
   "name": "pdf-react",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "A simple pdf viewer for react",
   "main": "src/index.js",
   "scripts": {
