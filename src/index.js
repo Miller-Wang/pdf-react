@@ -330,6 +330,8 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
           this.pdf.loadDocument(nextProps.src);
           this.setState({
             page: 1,
+            total: 1,
+            progress: 0,
           });
         }
 

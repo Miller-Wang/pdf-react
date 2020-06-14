@@ -2,7 +2,7 @@ import React, { Component } from "react";
 import PdfViewer from "pdf-react";
 
 import testPdf from "./static/test.pdf";
-const testLink = "http://www.miller8.top/pdf-react/test2.pdf";
+const testLink = "http://www.miller8.top/pdf-react/demo.pdf";
 export default class App extends Component {
   constructor(props) {
     super(props);

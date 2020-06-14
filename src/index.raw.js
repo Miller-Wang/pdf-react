@@ -34,16 +34,16 @@ function Progress({ progress = 0 }) {
           d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
           fill="none"
           stroke="#e5e9f2"
-          stroke-width="4"
+          strokeWidth="4"
         ></path>
         <path
           d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
           fill="none"
           stroke="#20a0ff"
-          stroke-linecap="round"
+          strokeLinecap="round"
           className="progress-svg-path"
           transform="rotate(90,50,50)"
-          stroke-width="4"
+          strokeWidth="4"
           style={progressStyle}
         ></path>
       </svg>
@@ -101,7 +101,9 @@ export default class PDFViewer extends Component {
   UNSAFE_componentWillReceiveProps(nextProps) {
     const preProps = this.props;
     if (nextProps.src && preProps.src !== nextProps.src) {
+      this.pdf.loadPage(0);
       this.pdf.loadDocument(nextProps.src);
+      this.setState({ page: 1, total: 1, progress: 0 });
     }
 
     if (
