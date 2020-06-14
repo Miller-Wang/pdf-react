@@ -179,6 +179,22 @@ function _getPrototypeOf(o) {
   return _getPrototypeOf(o);
 }
 
+var oldConsoleError = console.error;
+
+console.error = function () {
+  for (
+    var _len = arguments.length, rests = new Array(_len), _key = 0;
+    _key < _len;
+    _key++
+  ) {
+    rests[_key] = arguments[_key];
+  }
+
+  if (rests[0] && rests[0].startsWith("getGlobalEventBus is deprecated"))
+    return;
+  oldConsoleError.apply(void 0, rests);
+};
+
 var pdfReader = require("./pdfReader.js").default;
 
 var PDFJS = require("pdfjs-dist/build/pdf.min.js");
@@ -195,13 +211,51 @@ if (
 
 var _pdfReader = pdfReader(PDFJS),
   createLoadingTask = _pdfReader.createLoadingTask,
-  PDFJSWrapper = _pdfReader.PDFJSWrapper;
+  PDFJSWrapper = _pdfReader.PDFJSWrapper; // 0 - 1
+
+function Progress(_ref) {
+  var _ref$progress = _ref.progress,
+    progress = _ref$progress === void 0 ? 0 : _ref$progress;
+  var progressStyle = {
+    strokeDashoffset: "".concat(-252 + progress * 252, "px"),
+  };
+  return /*#__PURE__*/ _react.default.createElement(
+    "div",
+    {
+      className: "pdf-react-progress",
+    },
+    /*#__PURE__*/ _react.default.createElement(
+      "svg",
+      {
+        viewBox: "0 0 100 100",
+      },
+      /*#__PURE__*/ _react.default.createElement("path", {
+        d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
+        fill: "none",
+        stroke: "#e5e9f2",
+        "stroke-width": "4",
+      }),
+      /*#__PURE__*/ _react.default.createElement("path", {
+        d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
+        fill: "none",
+        stroke: "#20a0ff",
+        "stroke-linecap": "round",
+        className: "progress-svg-path",
+        transform: "rotate(90,50,50)",
+        "stroke-width": "4",
+        style: progressStyle,
+      })
+    )
+  );
+}
 /**
  * props
  * @param {string} src
  * @param {number} page
+ * @param {number} rotate 0 90 180 270
  * @param {boolean} hideArrow
  * @param {boolean} hidePageNum
+ * @param {boolean} showProgress  when load large file, you can turn on and you will see the load progress
  * @param {func} onLoaded
  * @param {func} onPageUpdate
  * @param {func} onGetTotalPage
@@ -229,6 +283,7 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
     _this.state = {
       page: 1,
       total: 1,
+      progress: 0,
     };
     return _this;
   } // 触发监听事件
@@ -238,13 +293,13 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
       key: "$emit",
       value: function $emit(name) {
         for (
-          var _len = arguments.length,
-            args = new Array(_len > 1 ? _len - 1 : 0),
-            _key = 1;
-          _key < _len;
-          _key++
+          var _len2 = arguments.length,
+            args = new Array(_len2 > 1 ? _len2 - 1 : 0),
+            _key2 = 1;
+          _key2 < _len2;
+          _key2++
         ) {
-          args[_key - 1] = arguments[_key];
+          args[_key2 - 1] = arguments[_key2];
         }
 
         var fns = this.subscriptions[name];
@@ -297,6 +352,10 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
         );
         this.addEventListener();
         this.pdf.loadDocument(this.props.src);
+
+        if (this.annotationLayer.current) {
+          this.addresize(this.annotationLayer.current, this.resize.bind(this));
+        }
       },
     },
     {
@@ -320,6 +379,10 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
         });
         this.$on("progress", function (progress) {
           onProgress && onProgress(progress);
+
+          _this2.setState({
+            progress: progress,
+          });
         });
         this.$on("num-pages", function (total) {
           _this2.setState({
@@ -338,7 +401,6 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
           onError && onError(err);
         });
         this.$on("link-clicked", function (pageNumber) {
-          console.log("link-clicked", pageNumber);
           onLinkClick && onLinkClick(pageNumber);
         });
       },
@@ -350,19 +412,42 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
       },
     },
     {
-      key: "resize",
-      value: function resize(size) {
-        // check if the element is attached to the dom tree || resizeSensor being destroyed
-        if (
-          this.$el.parentNode === null ||
-          (size.width === 0 && size.height === 0)
-        )
-          return; // on IE10- canvas height must be set
+      key: "addresize",
+      value: function addresize(dom, fn) {
+        var w = dom.offsetWidth,
+          h = dom.offsetHeight,
+          oldfn = window.onresize;
 
-        this.canvas.current.style.height =
-          this.canvas.current.offsetWidth *
-            (this.canvas.current.height / this.canvas.current.width) +
-          "px"; // update the page when the resolution is too poor
+        if (oldfn) {
+          window.onresize = function () {
+            oldfn.call(window);
+
+            if (dom.offsetWidth != w || dom.offsetHeight != h) {
+              w = dom.offsetWidth;
+              h = dom.offsetHeight;
+              fn(dom);
+            }
+          };
+        } else {
+          window.onresize = function () {
+            if (dom.offsetWidth != w || dom.offsetHeight != h) {
+              w = dom.offsetWidth;
+              h = dom.offsetHeight;
+              fn(dom);
+            }
+          };
+        }
+      },
+    },
+    {
+      key: "resize",
+      value: function resize(dom) {
+        // IE 10
+        if (!window.Promise) {
+          var canvasEle = this.canvas.current;
+          canvasEle.style.height =
+            canvasEle.offsetWidth * (canvasEle.height / canvasEle.width) + "px";
+        } // update
 
         var resolutionScale = this.pdf.getResolutionScale();
 
@@ -420,55 +505,41 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
       value: function render() {
         var _this$state = this.state,
           page = _this$state.page,
-          total = _this$state.total;
+          total = _this$state.total,
+          progress = _this$state.progress;
         var _this$props4 = this.props,
           hidePageNum = _this$props4.hidePageNum,
-          hideArrow = _this$props4.hideArrow;
+          hideArrow = _this$props4.hideArrow,
+          showProgress = _this$props4.showProgress;
         page = this.props.page || page;
-        var canvasStyle = {
-          display: "inline-block",
-          width: "100%",
-          height: "100%",
-          verticalAlign: "top",
-        };
         return /*#__PURE__*/ _react.default.createElement(
-          _react.default.Fragment,
-          null,
-          /*#__PURE__*/ _react.default.createElement(
-            "div",
-            {
-              style: {
-                position: "relative",
-                display: "block",
-              },
-            },
-            /*#__PURE__*/ _react.default.createElement("canvas", {
-              style: canvasStyle,
-              ref: this.canvas,
-            }),
-            /*#__PURE__*/ _react.default.createElement("span", {
-              ref: this.annotationLayer,
-              className: "annotationLayer",
-              style: {
-                display: "inline-block",
-                width: "100%",
-                height: "100%",
-              },
-            })
-          ),
-          !hidePageNum &&
+          "div",
+          {
+            className: "pdf-react-container",
+          },
+          /*#__PURE__*/ _react.default.createElement("canvas", {
+            ref: this.canvas,
+            className: "pdf-react-canvas",
+          }),
+          /*#__PURE__*/ _react.default.createElement("span", {
+            ref: this.annotationLayer,
+            className: "annotationLayer",
+          }),
+          total &&
+            !hidePageNum &&
             /*#__PURE__*/ _react.default.createElement(
               "div",
               {
                 style: {
                   textAlign: "center",
                 },
+                className: "pdf-react-pager",
               },
               !hideArrow &&
                 /*#__PURE__*/ _react.default.createElement(
                   "span",
                   {
-                    className: "page-arrow",
+                    className: "pdf-react-arrow",
                     onClick: this.prevPage.bind(this),
                   },
                   "<"
@@ -478,12 +549,18 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
                 /*#__PURE__*/ _react.default.createElement(
                   "span",
                   {
-                    className: "page-arrow",
+                    className: "pdf-react-arrow",
                     onClick: this.nextPage.bind(this),
                   },
                   ">"
                 )
-            )
+            ),
+          showProgress &&
+            progress > 0 &&
+            progress < 1 &&
+            /*#__PURE__*/ _react.default.createElement(Progress, {
+              progress: progress,
+            })
         );
       },
     },

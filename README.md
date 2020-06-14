@@ -37,8 +37,10 @@ import pdf from "./static/1.pdf";
  * props
  * @param {string} src
  * @param {number} page
+ * @param {number} rotate 0 90 180 270
  * @param {boolean} hideArrow
  * @param {boolean} hidePageNum
+ * @param {boolean} showProgress  when load large file, you can turn on and you will see the load progress
  * @param {func} onLoaded
  * @param {func} onPageUpdate
  * @param {func} onGetTotalPage

@@ -1,6 +1,13 @@
 import React, { Component, createRef } from "react";
 import "./index.css";
 
+const oldConsoleError = console.error;
+console.error = (...rests) => {
+  if (rests[0] && rests[0].startsWith("getGlobalEventBus is deprecated"))
+    return;
+  oldConsoleError(...rests);
+};
+
 var pdfReader = require("./pdfReader.js").default;
 var PDFJS = require("pdfjs-dist/build/pdf.min.js");
 
@@ -15,12 +22,43 @@ if (
 
 const { createLoadingTask, PDFJSWrapper } = pdfReader(PDFJS);
 
+// 0 - 1
+function Progress({ progress = 0 }) {
+  const progressStyle = {
+    strokeDashoffset: `${-252 + progress * 252}px`,
+  };
+  return (
+    <div className="pdf-react-progress">
+      <svg viewBox="0 0 100 100">
+        <path
+          d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
+          fill="none"
+          stroke="#e5e9f2"
+          stroke-width="4"
+        ></path>
+        <path
+          d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
+          fill="none"
+          stroke="#20a0ff"
+          stroke-linecap="round"
+          className="progress-svg-path"
+          transform="rotate(90,50,50)"
+          stroke-width="4"
+          style={progressStyle}
+        ></path>
+      </svg>
+    </div>
+  );
+}
+
 /**
  * props
  * @param {string} src
  * @param {number} page
+ * @param {number} rotate 0 90 180 270
  * @param {boolean} hideArrow
  * @param {boolean} hidePageNum
+ * @param {boolean} showProgress  when load large file, you can turn on and you will see the load progress
  * @param {func} onLoaded
  * @param {func} onPageUpdate
  * @param {func} onGetTotalPage
@@ -40,6 +78,7 @@ export default class PDFViewer extends Component {
     this.state = {
       page: 1,
       total: 1,
+      progress: 0,
     };
   }
 
@@ -85,6 +124,9 @@ export default class PDFViewer extends Component {
     );
     this.addEventListener();
     this.pdf.loadDocument(this.props.src);
+    if (this.annotationLayer.current) {
+      this.addresize(this.annotationLayer.current, this.resize.bind(this));
+    }
   }
 
   addEventListener() {
@@ -105,6 +147,7 @@ export default class PDFViewer extends Component {
 
     this.$on("progress", (progress) => {
       onProgress && onProgress(progress);
+      this.setState({ progress });
     });
 
     this.$on("num-pages", (total) => {
@@ -123,7 +166,6 @@ export default class PDFViewer extends Component {
     });
 
     this.$on("link-clicked", (pageNumber) => {
-      console.log("link-clicked", pageNumber);
       onLinkClick && onLinkClick(pageNumber);
     });
   }
@@ -132,19 +174,40 @@ export default class PDFViewer extends Component {
     this.pdf.destroy();
   }
 
-  resize(size) {
-    // check if the element is attached to the dom tree || resizeSensor being destroyed
-    if (this.$el.parentNode === null || (size.width === 0 && size.height === 0))
-      return;
+  addresize(dom, fn) {
+    let w = dom.offsetWidth,
+      h = dom.offsetHeight,
+      oldfn = window.onresize;
+    if (oldfn) {
+      window.onresize = () => {
+        oldfn.call(window);
+        if (dom.offsetWidth != w || dom.offsetHeight != h) {
+          w = dom.offsetWidth;
+          h = dom.offsetHeight;
+          fn(dom);
+        }
+      };
+    } else {
+      window.onresize = () => {
+        if (dom.offsetWidth != w || dom.offsetHeight != h) {
+          w = dom.offsetWidth;
+          h = dom.offsetHeight;
+          fn(dom);
+        }
+      };
+    }
+  }
 
-    // on IE10- canvas height must be set
-    this.canvas.current.style.height =
-      this.canvas.current.offsetWidth *
-        (this.canvas.current.height / this.canvas.current.width) +
-      "px";
-    // update the page when the resolution is too poor
+  resize(dom) {
+    // IE 10
+    if (!window.Promise) {
+      const canvasEle = this.canvas.current;
+      canvasEle.style.height =
+        canvasEle.offsetWidth * (canvasEle.height / canvasEle.width) + "px";
+    }
+
+    // update
     var resolutionScale = this.pdf.getResolutionScale();
-
     if (resolutionScale < 0.85 || resolutionScale > 1.15) {
       this.pdf.renderPage(this.rotate);
     }
@@ -173,42 +236,39 @@ export default class PDFViewer extends Component {
   }
 
   render() {
-    let { page, total } = this.state;
-    const { hidePageNum, hideArrow } = this.props;
+    let { page, total, progress } = this.state;
+    const { hidePageNum, hideArrow, showProgress } = this.props;
     page = this.props.page || page;
-    const canvasStyle = {
-      display: "inline-block",
-      width: "100%",
-      height: "100%",
-      verticalAlign: "top",
-    };
 
     return (
-      <>
-        <div style={{ position: "relative", display: "block" }}>
-          <canvas style={canvasStyle} ref={this.canvas}></canvas>
-          <span
-            ref={this.annotationLayer}
-            className="annotationLayer"
-            style={{ display: "inline-block", width: "100%", height: "100%" }}
-          ></span>
-        </div>
-        {!hidePageNum && (
-          <div style={{ textAlign: "center" }}>
+      <div className="pdf-react-container">
+        <canvas ref={this.canvas} className="pdf-react-canvas"></canvas>
+        <span ref={this.annotationLayer} className="annotationLayer"></span>
+        {total && !hidePageNum && (
+          <div style={{ textAlign: "center" }} className="pdf-react-pager">
             {!hideArrow && (
-              <span className="page-arrow" onClick={this.prevPage.bind(this)}>
+              <span
+                className="pdf-react-arrow"
+                onClick={this.prevPage.bind(this)}
+              >
                 {"<"}
               </span>
             )}
             {`${page} / ${total}`}
             {!hideArrow && (
-              <span className="page-arrow" onClick={this.nextPage.bind(this)}>
+              <span
+                className="pdf-react-arrow"
+                onClick={this.nextPage.bind(this)}
+              >
                 {">"}
               </span>
             )}
           </div>
         )}
-      </>
+        {showProgress && progress > 0 && progress < 1 && (
+          <Progress progress={progress} />
+        )}
+      </div>
     );
   }
 }
