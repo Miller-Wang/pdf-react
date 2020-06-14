@@ -8,7 +8,7 @@ export default class App extends Component {
     return (
       <div>
         <h1>pdf-react</h1>
-        <PdfViewer src={testPdf} />
+        <PdfViewer src={testPdf} showProgress={true} />
       </div>
     );
   }

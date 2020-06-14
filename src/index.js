@@ -233,16 +233,16 @@ function Progress(_ref) {
         d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
         fill: "none",
         stroke: "#e5e9f2",
-        "stroke-width": "4",
+        strokeWidth: "4",
       }),
       /*#__PURE__*/ _react.default.createElement("path", {
         d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
         fill: "none",
         stroke: "#20a0ff",
-        "stroke-linecap": "round",
+        strokeLinecap: "round",
         className: "progress-svg-path",
         transform: "rotate(90,50,50)",
-        "stroke-width": "4",
+        strokeWidth: "4",
         style: progressStyle,
       })
     )
