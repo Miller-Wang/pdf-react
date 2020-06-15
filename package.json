@@ -12,7 +12,7 @@
     "react-pdf"
   ],
   "author": "miller",
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Miller-Wang/pdf-react.git"
