@@ -36,6 +36,7 @@ import pdf from "./static/1.pdf";
 /**
  * props
  * @param {string} src
+ * @param {boolean} isSerial
  * @param {number} page
  * @param {number} rotate 0 90 180 270
  * @param {boolean} hideArrow

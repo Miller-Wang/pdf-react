@@ -37,7 +37,7 @@ export default function (PDFJS) {
     return loadingTask;
   }
 
-  function PDFJSWrapper(canvasElt, annotationLayerElt, emitEvent) {
+  function PDFJSWrapper(canvasElt, annotationLayerElt, emitEvent, isSerial) {
     var pdfDoc = null;
     var pdfPage = null;
     var pdfRender = null;
@@ -311,6 +311,7 @@ export default function (PDFJS) {
         return;
       }
 
+      var that = this;
       // wait for pending operation ends
       pendingOperation = pendingOperation
         .then(function () {
@@ -349,12 +350,51 @@ export default function (PDFJS) {
           pdfDoc = pdf;
           emitEvent("num-pages", pdf.numPages);
           emitEvent("loaded");
+          if (isSerial) {
+            that.loadSeriesPage();
+          }
         })
         .catch(function (err) {
           clearCanvas();
           clearAnnotations();
           emitEvent("error", err);
         });
+    };
+
+    this.loadSeriesPage = function () {
+      var totalPage = pdfDoc.numPages;
+      var node = canvasElt.parentNode;
+
+      for (let i = 1; i <= totalPage; i++) {
+        pdfDoc.getPage(i).then(function (page) {
+          // calculate scale according to the box size
+          var boxWidth = node.clientWidth;
+          var pdfWidth = page.getViewport({ scale: 1 }).width;
+          var scale = (boxWidth / pdfWidth) * 1;
+          var viewport = page.getViewport({ scale });
+
+          // set canvas for page
+          var canvas = i === 1 ? canvasElt : document.createElement("canvas");
+          canvas.classList.add("pdf-react-canvas");
+
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          node.appendChild(canvas);
+
+          // get context and render page
+          var context = canvas.getContext("2d");
+          var renderContext = {
+            canvasContext: context,
+            viewport: viewport,
+          };
+          page.render(renderContext);
+        });
+      }
+    };
+
+    this.clearSeriesPage = function () {
+      var delArr = Array.from(canvasElt.parentNode.children).slice(2);
+      delArr.forEach((el) => el.remove());
     };
 
     annotationLayerElt.style.transformOrigin = "0 0";

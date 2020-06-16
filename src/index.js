@@ -129,7 +129,7 @@ function _setPrototypeOf(o, p) {
 
 function _createSuper(Derived) {
   var hasNativeReflectConstruct = _isNativeReflectConstruct();
-  return function _createSuperInternal() {
+  return function () {
     var Super = _getPrototypeOf(Derived),
       result;
     if (hasNativeReflectConstruct) {
@@ -179,6 +179,10 @@ function _getPrototypeOf(o) {
   return _getPrototypeOf(o);
 }
 
+var pdfReader = require("./pdfReader.js").default;
+
+var PDFJS = require("pdfjs-dist/build/pdf.min.js");
+
 var oldConsoleError = console.error;
 
 console.error = function () {
@@ -195,10 +199,6 @@ console.error = function () {
   oldConsoleError.apply(void 0, rests);
 };
 
-var pdfReader = require("./pdfReader.js").default;
-
-var PDFJS = require("pdfjs-dist/build/pdf.min.js");
-
 if (
   typeof window !== "undefined" &&
   "Worker" in window &&
@@ -211,46 +211,11 @@ if (
 
 var _pdfReader = pdfReader(PDFJS),
   createLoadingTask = _pdfReader.createLoadingTask,
-  PDFJSWrapper = _pdfReader.PDFJSWrapper; // 0 - 1
-
-function Progress(_ref) {
-  var _ref$progress = _ref.progress,
-    progress = _ref$progress === void 0 ? 0 : _ref$progress;
-  var progressStyle = {
-    strokeDashoffset: "".concat(-252 + progress * 252, "px"),
-  };
-  return /*#__PURE__*/ _react.default.createElement(
-    "div",
-    {
-      className: "pdf-react-progress",
-    },
-    /*#__PURE__*/ _react.default.createElement(
-      "svg",
-      {
-        viewBox: "0 0 100 100",
-      },
-      /*#__PURE__*/ _react.default.createElement("path", {
-        d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
-        fill: "none",
-        stroke: "#e5e9f2",
-        strokeWidth: "4",
-      }),
-      /*#__PURE__*/ _react.default.createElement("path", {
-        d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
-        fill: "none",
-        stroke: "#20a0ff",
-        strokeLinecap: "round",
-        className: "progress-svg-path",
-        transform: "rotate(90,50,50)",
-        strokeWidth: "4",
-        style: progressStyle,
-      })
-    )
-  );
-}
+  PDFJSWrapper = _pdfReader.PDFJSWrapper;
 /**
  * props
  * @param {string} src
+ * @param {boolean} isSerial
  * @param {number} page
  * @param {number} rotate 0 90 180 270
  * @param {boolean} hideArrow
@@ -277,8 +242,8 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
 
     _this = _super.call(this, props);
     _this.subscriptions = {};
-    _this.canvas = /*#__PURE__*/ (0, _react.createRef)();
-    _this.annotationLayer = /*#__PURE__*/ (0, _react.createRef)();
+    _this.canvas = (0, _react.createRef)();
+    _this.annotationLayer = (0, _react.createRef)();
     _this.createLoadingTask = createLoadingTask;
     _this.state = {
       page: 1,
@@ -327,6 +292,11 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
 
         if (nextProps.src && preProps.src !== nextProps.src) {
           this.pdf.loadPage(0);
+
+          if (this.props.isSerial) {
+            this.pdf.clearSeriesPage();
+          }
+
           this.pdf.loadDocument(nextProps.src);
           this.setState({
             page: 1,
@@ -354,12 +324,13 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
         this.pdf = new PDFJSWrapper(
           this.canvas.current,
           this.annotationLayer.current,
-          this.$emit.bind(this)
+          this.$emit.bind(this),
+          this.props.isSerial
         );
         this.addEventListener();
         this.pdf.loadDocument(this.props.src);
 
-        if (this.annotationLayer.current) {
+        if (this.annotationLayer.current && !this.props.isSerial) {
           this.addresize(this.annotationLayer.current, this.resize.bind(this));
         }
       },
@@ -370,6 +341,7 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
         var _this2 = this;
 
         var _this$props = this.props,
+          isSerial = _this$props.isSerial,
           page = _this$props.page,
           rotate = _this$props.rotate,
           onLoaded = _this$props.onLoaded,
@@ -380,8 +352,7 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
           onPageSize = _this$props.onPageSize;
         this.$on("loaded", function () {
           onLoaded && onLoaded();
-
-          _this2.pdf.loadPage(page || _this2.state.page, rotate);
+          !isSerial && _this2.pdf.loadPage(page || _this2.state.page, rotate);
         });
         this.$on("progress", function (progress) {
           onProgress && onProgress(progress);
@@ -398,9 +369,8 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
           onGetTotalPage && onGetTotalPage(total);
         });
         this.$on("page-size", function (width, height) {
-          var canvasEle = _this2.canvas.current;
-          canvasEle.style.height =
-            canvasEle.offsetWidth * (height / width) + "px";
+          // const canvasEle = this.canvas.current;
+          // canvasEle.style.height = canvasEle.offsetWidth * (height / width) + "px";
           onPageSize && onPageSize(width, height);
         });
         this.$on("error", function (err) {
@@ -507,30 +477,20 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
       },
     },
     {
-      key: "render",
-      value: function render() {
-        var _this$state = this.state,
-          page = _this$state.page,
-          total = _this$state.total,
-          progress = _this$state.progress;
+      key: "renderPagination",
+      value: function renderPagination() {
         var _this$props4 = this.props,
           hidePageNum = _this$props4.hidePageNum,
           hideArrow = _this$props4.hideArrow,
-          showProgress = _this$props4.showProgress;
-        page = this.props.page || page;
+          isSerial = _this$props4.isSerial;
+        if (isSerial) return null;
+        var _this$props$page = this.props.page,
+          page =
+            _this$props$page === void 0 ? this.state.page : _this$props$page;
+        var total = this.state.total;
         return /*#__PURE__*/ _react.default.createElement(
-          "div",
-          {
-            className: "pdf-react-container",
-          },
-          /*#__PURE__*/ _react.default.createElement("canvas", {
-            ref: this.canvas,
-            className: "pdf-react-canvas",
-          }),
-          /*#__PURE__*/ _react.default.createElement("span", {
-            ref: this.annotationLayer,
-            className: "annotationLayer",
-          }),
+          _react.default.Fragment,
+          null,
           total &&
             !hidePageNum &&
             /*#__PURE__*/ _react.default.createElement(
@@ -560,19 +520,84 @@ var PDFViewer = /*#__PURE__*/ (function (_Component) {
                   },
                   ">"
                 )
-            ),
-          showProgress &&
-            progress > 0 &&
-            progress < 1 &&
-            /*#__PURE__*/ _react.default.createElement(Progress, {
-              progress: progress,
-            })
+            )
+        );
+      },
+    },
+    {
+      key: "renderProgress",
+      value: function renderProgress() {
+        var _this$props5 = this.props,
+          showProgress = _this$props5.showProgress,
+          isSerial = _this$props5.isSerial;
+        var progress = this.state.progress;
+        if (!showProgress || isSerial) return null;
+        if (progress === 0 || progress === 1) return null;
+        return /*#__PURE__*/ _react.default.createElement(Progress, {
+          progress: progress,
+        });
+      },
+    },
+    {
+      key: "render",
+      value: function render() {
+        return /*#__PURE__*/ _react.default.createElement(
+          "div",
+          {
+            className: "pdf-react-container",
+          },
+          /*#__PURE__*/ _react.default.createElement("canvas", {
+            ref: this.canvas,
+            className: "pdf-react-canvas",
+          }),
+          /*#__PURE__*/ _react.default.createElement("span", {
+            ref: this.annotationLayer,
+            className: "annotationLayer",
+          }),
+          this.renderPagination(),
+          this.renderProgress()
         );
       },
     },
   ]);
 
   return PDFViewer;
-})(_react.Component);
+})(_react.Component); // 0 - 1
 
 exports.default = PDFViewer;
+
+function Progress(_ref) {
+  var _ref$progress = _ref.progress,
+    progress = _ref$progress === void 0 ? 0 : _ref$progress;
+  var progressStyle = {
+    strokeDashoffset: "".concat(-252 + progress * 252, "px"),
+  };
+  return /*#__PURE__*/ _react.default.createElement(
+    "div",
+    {
+      className: "pdf-react-progress",
+    },
+    /*#__PURE__*/ _react.default.createElement(
+      "svg",
+      {
+        viewBox: "0 0 100 100",
+      },
+      /*#__PURE__*/ _react.default.createElement("path", {
+        d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
+        fill: "none",
+        stroke: "#e5e9f2",
+        strokeWidth: "4",
+      }),
+      /*#__PURE__*/ _react.default.createElement("path", {
+        d: "M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0",
+        fill: "none",
+        stroke: "#20a0ff",
+        strokeLinecap: "round",
+        className: "progress-svg-path",
+        transform: "rotate(90,50,50)",
+        strokeWidth: "4",
+        style: progressStyle,
+      })
+    )
+  );
+}

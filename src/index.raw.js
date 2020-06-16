@@ -1,5 +1,7 @@
 import React, { Component, createRef } from "react";
 import "./index.css";
+const pdfReader = require("./pdfReader.js").default;
+const PDFJS = require("pdfjs-dist/build/pdf.min.js");
 
 const oldConsoleError = console.error;
 console.error = (...rests) => {
@@ -8,52 +10,21 @@ console.error = (...rests) => {
   oldConsoleError(...rests);
 };
 
-var pdfReader = require("./pdfReader.js").default;
-var PDFJS = require("pdfjs-dist/build/pdf.min.js");
-
 if (
   typeof window !== "undefined" &&
   "Worker" in window &&
   navigator.appVersion.indexOf("MSIE 10") === -1
 ) {
-  var PdfjsWorker = require("worker-loader!pdfjs-dist/build/pdf.worker.js");
+  const PdfjsWorker = require("worker-loader!pdfjs-dist/build/pdf.worker.js");
   PDFJS.GlobalWorkerOptions.workerPort = new PdfjsWorker();
 }
 
 const { createLoadingTask, PDFJSWrapper } = pdfReader(PDFJS);
 
-// 0 - 1
-function Progress({ progress = 0 }) {
-  const progressStyle = {
-    strokeDashoffset: `${-252 + progress * 252}px`,
-  };
-  return (
-    <div className="pdf-react-progress">
-      <svg viewBox="0 0 100 100">
-        <path
-          d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
-          fill="none"
-          stroke="#e5e9f2"
-          strokeWidth="4"
-        ></path>
-        <path
-          d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
-          fill="none"
-          stroke="#20a0ff"
-          strokeLinecap="round"
-          className="progress-svg-path"
-          transform="rotate(90,50,50)"
-          strokeWidth="4"
-          style={progressStyle}
-        ></path>
-      </svg>
-    </div>
-  );
-}
-
 /**
  * props
  * @param {string} src
+ * @param {boolean} isSerial
  * @param {number} page
  * @param {number} rotate 0 90 180 270
  * @param {boolean} hideArrow
@@ -102,6 +73,9 @@ export default class PDFViewer extends Component {
     const preProps = this.props;
     if (nextProps.src && preProps.src !== nextProps.src) {
       this.pdf.loadPage(0);
+      if (this.props.isSerial) {
+        this.pdf.clearSeriesPage();
+      }
       this.pdf.loadDocument(nextProps.src);
       this.setState({ page: 1, total: 1, progress: 0 });
     }
@@ -122,17 +96,19 @@ export default class PDFViewer extends Component {
     this.pdf = new PDFJSWrapper(
       this.canvas.current,
       this.annotationLayer.current,
-      this.$emit.bind(this)
+      this.$emit.bind(this),
+      this.props.isSerial
     );
     this.addEventListener();
     this.pdf.loadDocument(this.props.src);
-    if (this.annotationLayer.current) {
+    if (this.annotationLayer.current && !this.props.isSerial) {
       this.addresize(this.annotationLayer.current, this.resize.bind(this));
     }
   }
 
   addEventListener() {
     const {
+      isSerial,
       page,
       rotate,
       onLoaded,
@@ -144,7 +120,7 @@ export default class PDFViewer extends Component {
     } = this.props;
     this.$on("loaded", () => {
       onLoaded && onLoaded();
-      this.pdf.loadPage(page || this.state.page, rotate);
+      !isSerial && this.pdf.loadPage(page || this.state.page, rotate);
     });
 
     this.$on("progress", (progress) => {
@@ -158,8 +134,8 @@ export default class PDFViewer extends Component {
     });
 
     this.$on("page-size", (width, height) => {
-      const canvasEle = this.canvas.current;
-      canvasEle.style.height = canvasEle.offsetWidth * (height / width) + "px";
+      // const canvasEle = this.canvas.current;
+      // canvasEle.style.height = canvasEle.offsetWidth * (height / width) + "px";
       onPageSize && onPageSize(width, height);
     });
 
@@ -209,7 +185,7 @@ export default class PDFViewer extends Component {
     }
 
     // update
-    var resolutionScale = this.pdf.getResolutionScale();
+    const resolutionScale = this.pdf.getResolutionScale();
     if (resolutionScale < 0.85 || resolutionScale > 1.15) {
       this.pdf.renderPage(this.rotate);
     }
@@ -237,15 +213,13 @@ export default class PDFViewer extends Component {
     }
   }
 
-  render() {
-    let { page, total, progress } = this.state;
-    const { hidePageNum, hideArrow, showProgress } = this.props;
-    page = this.props.page || page;
-
+  renderPagination() {
+    const { hidePageNum, hideArrow, isSerial } = this.props;
+    if (isSerial) return null;
+    const { page = this.state.page } = this.props;
+    const { total } = this.state;
     return (
-      <div className="pdf-react-container">
-        <canvas ref={this.canvas} className="pdf-react-canvas"></canvas>
-        <span ref={this.annotationLayer} className="annotationLayer"></span>
+      <>
         {total && !hidePageNum && (
           <div style={{ textAlign: "center" }} className="pdf-react-pager">
             {!hideArrow && (
@@ -267,10 +241,55 @@ export default class PDFViewer extends Component {
             )}
           </div>
         )}
-        {showProgress && progress > 0 && progress < 1 && (
-          <Progress progress={progress} />
-        )}
+      </>
+    );
+  }
+
+  renderProgress() {
+    const { showProgress, isSerial } = this.props;
+    let { progress } = this.state;
+    if (!showProgress || isSerial) return null;
+    if (progress === 0 || progress === 1) return null;
+    return <Progress progress={progress} />;
+  }
+
+  render() {
+    return (
+      <div className="pdf-react-container">
+        <canvas ref={this.canvas} className="pdf-react-canvas"></canvas>
+        <span ref={this.annotationLayer} className="annotationLayer"></span>
+        {this.renderPagination()}
+        {this.renderProgress()}
       </div>
     );
   }
+}
+
+// 0 - 1
+function Progress({ progress = 0 }) {
+  const progressStyle = {
+    strokeDashoffset: `${-252 + progress * 252}px`,
+  };
+  return (
+    <div className="pdf-react-progress">
+      <svg viewBox="0 0 100 100">
+        <path
+          d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
+          fill="none"
+          stroke="#e5e9f2"
+          strokeWidth="4"
+        ></path>
+        <path
+          d="M 50 50 m -40 0 a 40 40 0 1 0 80 0  a 40 40 0 1 0 -80 0"
+          fill="none"
+          stroke="#20a0ff"
+          strokeLinecap="round"
+          className="progress-svg-path"
+          transform="rotate(90,50,50)"
+          strokeWidth="4"
+          style={progressStyle}
+        ></path>
+      </svg>
+    </div>
+  );
 }
